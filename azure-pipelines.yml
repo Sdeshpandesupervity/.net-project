@@ -1,0 +1,69 @@
+# ASP.NET Core (.NET Framework)
+# Build and test ASP.NET Core projects targeting the full .NET Framework.
+# Add steps that publish symbols, save build artifacts, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/dotnet-core
+
+trigger:
+- main
+
+pool:
+  vmImage: 'windows-latest'
+  name: "Default"
+
+variables:
+  buildConfiguration: 'Release'
+  versionMajor: 1
+  versionMinor: 0
+  versionPatch: $[counter(variables['versionPatch'], 0)]
+  nugetPackageVersion: '$(versionMajor).$(versionMinor).$(versionPatch)'
+
+steps:
+- task: NuGetToolInstaller@1
+  displayName: 'Install NuGet'
+
+- script: |
+    dotnet restore
+    dotnet build --configuration Release
+  displayName: build and deploy
+
+
+# - task: NuGetCommand@2
+#   displayName: 'NuGet restore'
+#   inputs:
+#     restoreSolution: '**/*.sln'
+
+# - task: VSBuild@1
+#   displayName: 'Build solution'
+#   inputs:
+#     solution: '**/*.sln'
+#     configuration: '$(buildConfiguration)'
+
+# - task: NuGetCommand@2
+#   displayName: 'NuGet pack'
+#   inputs:
+#     command: 'pack'
+#     packagesToPack: '**/*.csproj'
+#     versioningScheme: 'byEnvVar'
+#     versionEnvVar: 'nugetPackageVersion'
+#     buildProperties: 'PackageVersion=$(nugetPackageVersion)'
+
+- powershell: gci env:* | sort-object name | Format-Table -AutoSize | Out-File $env:BUILD_ARTIFACTSTAGINGDIRECTORY/environment-variables.txt
+
+- task: CopyFiles@2
+  inputs:
+    sourceFolder: '$(Build.SourcesDirectory)'
+    contents: '**/$(BuildConfiguration)/**/?(*.exe|*.dll|*.pdb)'
+    targetFolder: '$(Build.ArtifactStagingDirectory)'
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathToPublish: '$(Build.ArtifactStagingDirectory)'
+    artifactName: drop
+
+- task: NuGetAuthenticate@0
+  displayName: 'NuGet Authenticate'
+- task: NuGetCommand@2
+  displayName: 'NuGet push'
+  inputs:
+    command: push
+    publishVstsFeed: 'amuham47/lab-test'
+    allowPackageConflicts: true
